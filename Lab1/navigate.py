@@ -2,6 +2,8 @@ import numpy as np
 from enum import Enum
 import math
 import heapq
+import picar_4wd as fc
+from picar_4wd import Ultrasonic
 
 
 STEPS = 3 # the number of steps to take before recomputing map
@@ -30,6 +32,11 @@ car_direction : double
 	The direction (angle) at which the car is facing
 measurement : (int, int)
 	A distance measurement from the ultrosonic in the format (angle, distance), were distance is in cm and angle in degrees
+
+Returns:
+------------
+cell : (int, int)
+	A cell in the grid i.e. (x,y) of bottom left corner
 """
 def getPos(car_pos, car_direction, measurement):
 	angle = measurement[0]
@@ -93,6 +100,29 @@ def addPoints(grid, pos1, pos2):
 def isValid(pos, grid_size):
 	return (pos[0] >= 0 and pos[1] >= 0 and pos[0] < grid_size[0] and pos[1] < grid_size[1])
 
+
+"""
+Gives a list of 
+
+Parameters:
+------------
+angle_range : (int, int)
+	The range of angles that from which the distance readings will be obtained
+angle_steps: 
+	Granularity of changing the angle of the servo for distance readings
+
+Returns:
+------------
+distance_measures : [(int,double), (int,double) ....]
+	Returns a list with angles and their corresponding distances [(angle, distance), ...]
+"""
+def getDistanceMeasurements(angle_range, angle_steps):
+	distance_measures = []
+	for angle in range(angle_range[0], angle_range[1]+1, angle_steps):
+		dis_val =  fc.get_distance_at(current_angle)
+		distance_measures.append((angle,dis_val))
+	return distance_measures
+
 """
 Maps a given grid with obstactles (where 1 represents an obstacle)
 
@@ -108,6 +138,11 @@ angle_range : (int, int)
 	The range of angles that from which the distance readings will be obtained
 angle_steps: 
 	Granularity of changing the angle of the servo for distance readings
+
+Returns:
+------------
+grid : np.array 
+    A 2D array 1cm^2 squares of the map with 1 representing an obstacle
 """
 def mapGrid(car_pos=(5,0), grid_size=(10,10), car_direction=0, angle_range=ANGLE_RANGE, angle_steps=ANGLE_STEPS):
 	grid = np.zeros(grid_size)
@@ -158,6 +193,11 @@ goal : (int, int)
 	The position of the goal where we want the car to navigate to in the grid
 grid_size : (int, int)
     The grid size in cm
+
+Returns:
+------------
+path : [(int,int), (int,int)...]
+    A list of cells to visit to get to the goal in the shortest path
 """
 def findPath(grid, car_pos, goal, grid_size):
 	class node:
@@ -202,6 +242,17 @@ def findPath(grid, car_pos, goal, grid_size):
 					adjacents.append(new_node)
 			return adjacents
 
+		def backtrack(self):
+			list_pos = []
+			curr_node = self
+			while not curr_node.isRoot():
+				list_pos.append(curr_node.pos)
+				curr_node = curr_node.previous
+			list_pos.append(curr_node.pos)
+			list_pos.reverse()
+			return list_pos
+
+
 
 	openList = []
 	closedList = []
@@ -212,8 +263,7 @@ def findPath(grid, car_pos, goal, grid_size):
 		closedList.append(curr_node)
 
 		if (curr_node.isGoal()):
-			return 0
-			# return curr_node.backtrack()
+			return curr_node.backtrack()
 
 		children = curr_node.adjacentChildren(grid, grid_size)
 		print()
@@ -274,6 +324,7 @@ def navigate(car_pos=(0,0), goal=(9,9), grid_size=(10,10), car_direction=0):
 		printGrid(grid, grid_size)
 		path = findPath(grid, car_pos, goal, grid_size) # path is a series of cells to visit to get to the goal
 		car_pos = goal
+		print(path)
 		# (car_pos, car_direction) = moveCar(path, STEPS, car_pos, car_direction)
 
 navigate()
