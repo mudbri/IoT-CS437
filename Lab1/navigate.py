@@ -182,7 +182,19 @@ def mapGrid(car_pos=(5,0), grid_size=(10,10), car_direction=0, angle_range=ANGLE
 			grid[last_obstacle_pos[0]][last_obstacle_pos[1]] = 1
 	return grid
 
-# markClearance(cell = (x,y), grid, radius)
+
+# cell = (x,y) coordinates
+# grid = two d coordinate array
+def markClearance(cell, grid, radius):
+	new_grid = [list(element) for element in grid]
+
+	for i in range(0, len(new_grid[0])):
+		for j in range(0, len(new_grid[1])):
+		if math.sqrt(math.pow(cell[0]-i, 2) + math.pow(cell[1]-j, 2)) <= radius:
+			new_grid[i][j] = 1
+
+		
+	return new_grid
 
 # prints grid in normal cartesian axes form
 def printGrid(grid, grid_size):
@@ -455,7 +467,8 @@ def navigate(car_pos=(0,0), goal=(9,9), grid_size=(10,10), car_direction=0):
 		print(path)
 		# (car_pos, car_direction) = moveCar(path, STEPS, car_pos, car_direction)
 
-navigate()
+#navigate()
+
 # navigate(car_pos=(45,0), goal=(70,70), grid_size=(90,90), car_direction=0)
 # right(10)
 # path = [(0,1), (0,2), (1,2), (2,2), (2,3), (2,4)]
@@ -468,3 +481,7 @@ navigate()
 # moveForward(1)
 
 # print(getDistanceMeasurements(ANGLE_RANGE, ANGLE_STEPS))
+
+
+# arr = [[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0]]
+# print(markClearance((0,1), arr, 2))
