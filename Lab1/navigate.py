@@ -6,13 +6,16 @@ import picar_4wd as fc
 from picar_4wd import Ultrasonic
 import time
 
-
 STEPS = 3 # the number of steps to take before recomputing map
 ANGLE_RANGE = (-50, 50) # the minimum and maximum angle that the servo can turn. This is relative to the position of ultrasonic sensor in the car
 ANGLE_STEPS = 5 # granularity of changing the angle of the servo for distance readings
 SCALE = 0.01 # descrete steps taken while calculating intersecting cells along a slope
 speed = 5
 TURN_VALUE = 763 # used to turn car at 90 degrees. This value depends on speed
+CELL_SIZE = 1 # each cell is of size CELL_SIZE*CELL_SIZE in cm
+CAR_WIDTH = 6 # Width of car in cm
+RADIUS = CAR_WIDTH/2 * CELL_SIZE # Clearance radius in cm
+THRESHOLD_SLOPE = 10 # Threshold distance in cm below which two detected obstacles would be considered one object
 
 class direction(Enum):
 	FORWARD = 2
@@ -22,7 +25,7 @@ class direction(Enum):
 
 # given an actual position in decimals, return the cell that the position belongs to
 def getCell(curr_pos):
-	return (math.floor(curr_pos[0]),math.floor(curr_pos[1]))
+	return (math.floor(curr_pos[0]/CELL_SIZE),math.floor(curr_pos[1]/CELL_SIZE))
 
 """
 Maps a distance measurement from ultrasonic to a cell in a grid
@@ -45,8 +48,8 @@ def getPos(car_pos, car_direction, measurement):
 	angle = measurement[0]
 	distance = measurement[1]
 	angle = angle+car_direction # get angle relative to the direction of the positive y axis
-	x = car_pos[0]+distance*math.sin(math.radians(angle))
-	y = car_pos[1]+distance*math.cos(math.radians(angle))
+	x = car_pos[0]*CELL_SIZE+distance*math.sin(math.radians(angle))
+	y = car_pos[1]*CELL_SIZE+distance*math.cos(math.radians(angle))
 	return (getCell((x,y)))
 
 # """
@@ -86,7 +89,7 @@ Methodology: Start at pos1 and then move towards pos2 in little increments. With
 Parameters:
 ------------
 grid : np.array 
-    A 2D array 1cm^2 squares of the map with 1 representing an obstacle
+    A 2D array squares of the map with 1 representing an obstacle. Each square of size CELL_SIZE*CELL_SIZE cm
 pos1 : (int, int)
 	Position 1 of a detected obstacle in the grid (x,y)
 pos2 : (int, int)
@@ -106,9 +109,11 @@ def addPoints(grid, pos1, pos2, grid_size):
 	while not neighbours(curr_cell, pos2):
 		# print(curr_pos[0],curr_pos[1])
 		curr_cell = getCell(curr_pos)
-		grid[curr_cell[0]][curr_cell[1]] = 1	
+		grid[curr_cell[0]][curr_cell[1]] = 1
+		markClearance(curr_cell, grid, RADIUS)	
 		curr_pos = (dx_movement + curr_pos[0], dy_movement + curr_pos[1])
-	grid[pos2[0]][pos2[1]] = 1	
+	grid[pos2[0]][pos2[1]] = 1
+	markClearance(pos2, grid, RADIUS)	
 
 # check if given position exists inside the grid
 def isValid(pos, grid_size):
@@ -158,40 +163,37 @@ angle_steps:
 Returns:
 ------------
 grid : np.array 
-    A 2D array 1cm^2 squares of the map with 1 representing an obstacle
+    A 2D array squares of the map with 1 representing an obstacle. Each square of size CELL_SIZE*CELL_SIZE cm
 """
 def mapGrid(car_pos=(5,0), grid_size=(10,10), car_direction=0, angle_range=ANGLE_RANGE, angle_steps=ANGLE_STEPS):
 	grid = np.zeros(grid_size)
-	# distance_measurements = getDistanceMeasurements(angle_range, angle_steps)
-	distance_measurements = [(60,5),(30,6)]
+	distance_measurements = getDistanceMeasurements(angle_range, angle_steps)
+	# distance_measurements = [(50,6),(30,3)]
 	for i in range(1, len(distance_measurements)):
 		measurement = distance_measurements[i]
 		last_measurement = distance_measurements[i-1]
 		obstacle_pos = getPos(car_pos, car_direction, measurement)
 		last_obstacle_pos = getPos(car_pos, car_direction, last_measurement)
-		if isValid(obstacle_pos, grid_size) and isValid(last_obstacle_pos, grid_size):
+		if isValid(obstacle_pos, grid_size) and isValid(last_obstacle_pos, grid_size) and abs(round(distance(obstacle_pos, last_obstacle_pos))) <= THRESHOLD_SLOPE:
 			addPoints(grid, obstacle_pos, last_obstacle_pos, grid_size) # Make given positions and cells on a slope between them 1
 		# elif isValid(obstacle_pos, grid_size) and not isValid(last_obstacle_pos, grid_size): #TODO: Add clearance
 		# 	grid[obstacle_pos[0]][obstacle_pos[1]] = 1
-		elif isValid(obstacle_pos, grid_size):
+		if isValid(obstacle_pos, grid_size):
 			grid[obstacle_pos[0]][obstacle_pos[1]] = 1
-		elif isValid(last_obstacle_pos, grid_size):
+			markClearance(obstacle_pos, grid, RADIUS)
+		if isValid(last_obstacle_pos, grid_size):
 			grid[last_obstacle_pos[0]][last_obstacle_pos[1]] = 1
+			markClearance(last_obstacle_pos, grid, RADIUS)
 	return grid
-
 
 # cell = (x,y) coordinates
 # grid = two d coordinate array
 def markClearance(cell, grid, radius):
-	new_grid = [list(element) for element in grid]
+	for i in range(0, len(grid[0])):
+		for j in range(0, len(grid[1])):
+			if math.sqrt(math.pow((cell[0]-i)*CELL_SIZE, 2) + math.pow((cell[1]-j)*CELL_SIZE, 2)) <= radius:
+				grid[i][j] = 1
 
-	for i in range(0, len(new_grid[0])):
-		for j in range(0, len(new_grid[1])):
-		if math.sqrt(math.pow(cell[0]-i, 2) + math.pow(cell[1]-j, 2)) <= radius:
-			new_grid[i][j] = 1
-
-		
-	return new_grid
 
 # prints grid in normal cartesian axes form
 def printGrid(grid, grid_size):
@@ -215,7 +217,7 @@ Pseudo-code taken from: https://medium.com/@nicholas.w.swift/easy-a-star-pathfin
 Parameters:
 ------------
 grid : np.array 
-    A 2D array 1cm^2 squares of the map with 1 representing an obstacle
+    A 2D array squares of the map with 1 representing an obstacle. Each square of size CELL_SIZE*CELL_SIZE cm
 car_pos : (int, int) 
     The current position of the car in the grid
 goal : (int, int)
@@ -469,9 +471,9 @@ def navigate(car_pos=(0,0), goal=(9,9), grid_size=(10,10), car_direction=0):
 		# addClearance(grid, CAR_SIZE) # TODO: adds extra space around obstacles to allow for the size of the car
 		printGrid(grid, grid_size)
 		path = findPath(grid, car_pos, goal, grid_size) # path is a series of cells to visit to get to the goal
-		car_pos = goal
+		# car_pos = goal
 		print(path)
-		# (car_pos, car_direction) = moveCar(path, STEPS, car_pos, car_direction)
+		(car_pos, car_direction) = moveCar(path, STEPS, car_pos, car_direction)
 
 navigate(car_pos=(0,0), goal=(3,4), grid_size=(10,10), car_direction=0)
 # navigate(car_pos=(45,0), goal=(70,70), grid_size=(90,90), car_direction=0)
