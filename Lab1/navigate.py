@@ -495,8 +495,8 @@ def navigate(car_pos=(0,0), goal=(9,9), grid_size=(10,10), car_direction=0):
 		print(path)
 		(car_pos, car_direction) = moveCar(path, STEPS, car_pos, car_direction)
 
-navigate(car_pos=(0,0), goal=(3,4), grid_size=(10,10), car_direction=0)
-# navigate(car_pos=(45,0), goal=(70,70), grid_size=(90,90), car_direction=0)
+# navigate(car_pos=(0,0), goal=(3,4), grid_size=(10,10), car_direction=0)
+navigate(car_pos=(45,0), goal=(70,70), grid_size=(90,90), car_direction=0)
 # right(10)
 # path = [(0,1), (0,2), (1,2), (2,2), (2,3), (2,4)]
 # moveCar(path, STEPS, (0,0), 2)

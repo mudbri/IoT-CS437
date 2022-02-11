@@ -82,10 +82,22 @@ def run(model: str, camera_id: int, width: int, height: int, num_threads: int,
       # print(str(detections[i][1]))
       if 'stop sign' in str(detections[i][1]):
         print("stop sign found")
-        fc.stop()
+        count_back = 0
+        while count_back < 50:
+          fc.backward()
+          count_back += 1
       else:
         print("not found")
-        fc.forward(speed)
+        count = 0
+        while True:
+          while count < 100:
+            fc.forward(speed)
+            count += 1
+          if count == 100:
+            count_stop = 0
+            while count_stop < 50:
+              fc.stop()
+              count_stop += 1
 
 
     # Draw keypoints and edges on input image
