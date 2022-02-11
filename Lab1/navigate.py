@@ -12,8 +12,8 @@ ANGLE_STEPS = 5 # granularity of changing the angle of the servo for distance re
 SCALE = 0.01 # descrete steps taken while calculating intersecting cells along a slope
 speed = 5
 TURN_VALUE = 763 # used to turn car at 90 degrees. This value depends on speed
-CELL_SIZE = 1 # each cell is of size CELL_SIZE*CELL_SIZE in cm
-CAR_WIDTH = 6 # Width of car in cm
+CELL_SIZE = 5 # each cell is of size CELL_SIZE*CELL_SIZE in cm
+CAR_WIDTH = 10 # Width of car in cm
 RADIUS = CAR_WIDTH/2 * CELL_SIZE # Clearance radius in cm
 THRESHOLD_SLOPE = 10 # Threshold distance in cm below which two detected obstacles would be considered one object
 
@@ -138,7 +138,7 @@ distance_measures : [(int,double), (int,double) ....]
 """
 def getDistanceMeasurements(angle_range, angle_steps):
 	fc.servo.set_angle(0)
-	time.sleep(2)
+	time.sleep(0.4)
 	distance_measures = []
 	for angle in range(angle_range[0], angle_range[1]+1, angle_steps):
 		dis_val =  fc.get_distance_at(angle)
@@ -192,7 +192,7 @@ def mapGrid(car_pos=(5,0), grid_size=(10,10), car_direction=0, angle_range=ANGLE
 def markClearance(cell, grid, radius):
 	for i in range(0, len(grid[0])):
 		for j in range(0, len(grid[1])):
-			if math.sqrt(math.pow((cell[0]-i)*CELL_SIZE, 2) + math.pow((cell[1]-j)*CELL_SIZE, 2)) <= radius:
+			if math.sqrt(math.pow((cell[0]-i), 2) + math.pow((cell[1]-j), 2)) <= radius:
 				grid[i][j] = 1
 
 
