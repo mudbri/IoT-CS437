@@ -4,12 +4,13 @@ import math
 import heapq
 import picar_4wd as fc
 from picar_4wd import Ultrasonic
+import time
 
 
 STEPS = 3 # the number of steps to take before recomputing map
-ANGLE_RANGE = (-60, 60) # the minimum and maximum angle that the servo can turn. This is relative to the position of ultrasonic sensor in the car
+ANGLE_RANGE = (-50, 50) # the minimum and maximum angle that the servo can turn. This is relative to the position of ultrasonic sensor in the car
 ANGLE_STEPS = 5 # granularity of changing the angle of the servo for distance readings
-SCALE = 0.1 # descrete steps taken while calculating intersecting cells along a slope
+SCALE = 0.01 # descrete steps taken while calculating intersecting cells along a slope
 
 # class direction(Enum):
 # 	FORWARD = 1
@@ -69,6 +70,13 @@ def getPos(car_pos, car_direction, measurement):
 # 			if cellIncludesLine(cell, pos1, pos2):
 # 				grid[cell[0]][cell[1]] = 1
 
+def neighbours(pos1, pos2):
+	if (pos1 == pos2):
+		return True
+	elif (abs(pos1[0]-pos2[0]) <= 1 and abs(pos1[1]-pos2[1]) <= 1):
+		return True
+	return False
+
 """
 Add points along the slope between two positions (to represent an object between two positions) 
 Methodology: Start at pos1 and then move towards pos2 in little increments. With each increment, mark the cell at that position as 1
@@ -84,12 +92,17 @@ pos2 : (int, int)
 """
 def addPoints(grid, pos1, pos2):
 	# TODO: Check if pos1 and pos2 are in the grid
+	print(pos1)
+	print(pos2)
+
 	curr_pos = pos1
 	dx = pos2[0]-pos1[0]
 	dy = pos2[1]-pos1[1]
 	dx_movement = SCALE*dx
 	dy_movement = SCALE*dy
-	while getCell(curr_pos) != pos2:
+	curr_cell = getCell(curr_pos)
+	while not neighbours(curr_cell, pos2):
+		print(getCell(curr_pos))
 		# print(curr_pos[0],curr_pos[1])
 		curr_cell = getCell(curr_pos)
 		grid[curr_cell[0]][curr_cell[1]] = 1	
@@ -117,10 +130,12 @@ distance_measures : [(int,double), (int,double) ....]
 	Returns a list with angles and their corresponding distances [(angle, distance), ...]
 """
 def getDistanceMeasurements(angle_range, angle_steps):
+	fc.servo.set_angle(0)
+	time.sleep(2)
 	distance_measures = []
 	for angle in range(angle_range[0], angle_range[1]+1, angle_steps):
-		dis_val =  fc.get_distance_at(current_angle)
-		distance_measures.append((angle,dis_val))
+		dis_val =  fc.get_distance_at(angle)
+		distance_measures.append((angle*-1,dis_val))
 	return distance_measures
 
 """
@@ -146,8 +161,8 @@ grid : np.array
 """
 def mapGrid(car_pos=(5,0), grid_size=(10,10), car_direction=0, angle_range=ANGLE_RANGE, angle_steps=ANGLE_STEPS):
 	grid = np.zeros(grid_size)
-	# distance_measurements = getDistanceMeasurements(angle_range, angle_steps)
-	distance_measurements = [(60,5),(30,6)]
+	distance_measurements = getDistanceMeasurements(angle_range, angle_steps)
+	# distance_measurements = [(60,5),(30,6)]
 	for i in range(1, len(distance_measurements)):
 		measurement = distance_measurements[i]
 		last_measurement = distance_measurements[i-1]
@@ -163,6 +178,7 @@ def mapGrid(car_pos=(5,0), grid_size=(10,10), car_direction=0, angle_range=ANGLE
 			grid[last_obstacle_pos[0]][last_obstacle_pos[1]] = 1
 	return grid
 
+# markClearance(cell = (x,y), grid, radius)
 
 # prints grid in normal cartesian axes form
 def printGrid(grid, grid_size):
@@ -266,10 +282,10 @@ def findPath(grid, car_pos, goal, grid_size):
 			return curr_node.backtrack()
 
 		children = curr_node.adjacentChildren(grid, grid_size)
-		print()
-		print(curr_node.pos)
+		# print()
+		# print(curr_node.pos)
 		for child in children:
-			print("child", child.pos)
+			# print("child", child.pos)
 			if child in closedList:
 				continue
 
@@ -301,6 +317,97 @@ def findPath(grid, car_pos, goal, grid_size):
 	# print(heapq.heappop(openList))
 	# print(heapq.heappop(openList))
 	# print(heapq.heappop(openList))
+speed = 5
+def moveForward(distance):
+	count_forward = 0
+	while (count_forward < 100):
+		fc.turn_right(speed)
+		count_forward += 1
+	fc.stop()
+
+def right(distance):
+	count_forward = 0
+	while (count_forward < 763):
+		fc.forward(speed)
+		count_forward += 1
+	fc.stop()
+
+def left(distance):
+	count_forward = 0
+	while (count_forward < 763):
+		fc.backward(speed)
+		count_forward += 1
+	fc.stop()
+		
+def move(goal_direction, car_direction):
+	direction = car_direction
+	if (goal_direction == 2 and car_direction == 1):
+		left(1)
+		direction = 2
+	elif (goal_direction == 2 and car_direction == -1):
+		right(1)
+		direction = 2
+	elif (goal_direction == 2 and car_direction == -2):
+		right(1)
+		right(1)
+		direction = 2
+
+	elif (goal_direction == 1 and car_direction == -2):
+		left(1)
+		direction = 1
+	elif (goal_direction == 1 and car_direction == 2):
+		right(1)
+		direction = 1
+	elif (goal_direction == 1 and car_direction == -1):
+		right(1)
+		right(1)
+		direction = 1
+
+	elif (goal_direction == -2 and car_direction == -1):
+		left(1)
+		direction = -2
+	elif (goal_direction == -2 and car_direction == 1):
+		right(1)
+		direction = -2
+	elif (goal_direction == -2 and car_direction == 2):
+		right(1)
+		right(1)
+		direction = -2
+
+	elif (goal_direction == -1 and car_direction == 2):
+		left(1)
+		direction = -1
+	elif (goal_direction == -1 and car_direction == -2):
+		right(1)
+		direction = -1
+	elif (goal_direction == -1 and car_direction == 1):
+		right(1)
+		right(1)
+		direction = -1
+
+	moveForward(1)
+	return(direction)
+
+# move x positive as 1
+# move x negative as -1
+# move y positive as 2
+# move y negative as -2
+def moveCar(path, STEPS, car_pos, car_direction):
+	curr_pos = car_pos
+	for cell in path:
+		print("cell", cell)
+		print("car_direction", car_direction)
+		if (cell[0]-curr_pos[0]) == 1:
+			car_direction = move(1, car_direction)
+		if (cell[0]-curr_pos[0]) == -1:
+			car_direction = move(-1, car_direction)
+		if (cell[1]-curr_pos[1]) == 1:
+			car_direction = move(2, car_direction)
+		if (cell[1]-curr_pos[1]) == -1:
+			car_direction = move(-2, car_direction)
+		curr_pos = cell
+
+
 
 
 """
@@ -325,7 +432,17 @@ def navigate(car_pos=(0,0), goal=(9,9), grid_size=(10,10), car_direction=0):
 		path = findPath(grid, car_pos, goal, grid_size) # path is a series of cells to visit to get to the goal
 		car_pos = goal
 		print(path)
-		# (car_pos, car_direction) = moveCar(path, STEPS, car_pos, car_direction)
+		(car_pos, car_direction) = moveCar(path, STEPS, car_pos, car_direction)
 
-navigate()
-	
+# navigate(car_pos=(45,0), goal=(70,70), grid_size=(90,90), car_direction=0)
+# right(10)
+path = [(0,1), (0,2), (1,2), (2,2), (2,3), (2,4)]
+moveCar(path, STEPS, (0,0), 2)
+# moveForward(1)
+# moveForward(1)
+# right(1)
+# moveForward(1)
+# left(1)
+# moveForward(1)
+
+# print(getDistanceMeasurements(ANGLE_RANGE, ANGLE_STEPS))
