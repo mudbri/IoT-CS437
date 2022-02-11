@@ -92,21 +92,18 @@ pos1 : (int, int)
 pos2 : (int, int)
 	Position 2 of a detected obstacle in the grid (x,y)
 """
-def addPoints(grid, pos1, pos2):
-	# TODO: Check if pos1 and pos2 are in the grid
-	print(pos1)
-	print(pos2)
+def addPoints(grid, pos1, pos2, grid_size):
+	# Check if pos1 and pos2 are in the grid
+	if (not isValid(pos1,grid_size) or not isValid(pos2,grid_size)):
+		return
 
 	curr_pos = pos1
 	dx = pos2[0]-pos1[0]
 	dy = pos2[1]-pos1[1]
 	dx_movement = SCALE*dx
 	dy_movement = SCALE*dy
-	print(dx_movement)
-	print(dy_movement)
 	curr_cell = getCell(curr_pos)
 	while not neighbours(curr_cell, pos2):
-		print(getCell(curr_pos))
 		# print(curr_pos[0],curr_pos[1])
 		curr_cell = getCell(curr_pos)
 		grid[curr_cell[0]][curr_cell[1]] = 1	
@@ -165,15 +162,15 @@ grid : np.array
 """
 def mapGrid(car_pos=(5,0), grid_size=(10,10), car_direction=0, angle_range=ANGLE_RANGE, angle_steps=ANGLE_STEPS):
 	grid = np.zeros(grid_size)
-	distance_measurements = getDistanceMeasurements(angle_range, angle_steps)
-	# distance_measurements = [(60,5),(30,6)]
+	# distance_measurements = getDistanceMeasurements(angle_range, angle_steps)
+	distance_measurements = [(60,5),(30,6)]
 	for i in range(1, len(distance_measurements)):
 		measurement = distance_measurements[i]
 		last_measurement = distance_measurements[i-1]
 		obstacle_pos = getPos(car_pos, car_direction, measurement)
 		last_obstacle_pos = getPos(car_pos, car_direction, last_measurement)
 		if isValid(obstacle_pos, grid_size) and isValid(last_obstacle_pos, grid_size):
-			addPoints(grid, obstacle_pos, last_obstacle_pos) # Make given positions and cells on a slope between them 1
+			addPoints(grid, obstacle_pos, last_obstacle_pos, grid_size) # Make given positions and cells on a slope between them 1
 		# elif isValid(obstacle_pos, grid_size) and not isValid(last_obstacle_pos, grid_size): #TODO: Add clearance
 		# 	grid[obstacle_pos[0]][obstacle_pos[1]] = 1
 		elif isValid(obstacle_pos, grid_size):
@@ -233,12 +230,12 @@ path : [(int,int), (int,int)...]
 """
 def findPath(grid, car_pos, goal, grid_size):
 	class node:
-		def __init__(self, previous, pos, start, goal):
+		def __init__(self, previous, pos, start, goal, curr_g):
 			self.previous = previous
 			self.pos = pos
 			self.start = start
 			self.goal = goal
-			self.g = distance(pos, start)
+			self.g = distance(pos, start)+curr_g
 			self.h = distance(pos, goal)
 			self.f = self.g+self.h
 
@@ -263,14 +260,22 @@ def findPath(grid, car_pos, goal, grid_size):
 
 		def adjacentChildren(self, grid, grid_size):
 			adjacents = []
-			for dy in range(-1, 2, 1):
-				for dx in range(-1, 2, 1):
-					new_pos = (self.pos[0] + dx, self.pos[0] + dy)
-					if (new_pos == self.pos or not isValid(new_pos, grid_size)):
-						continue
-					if grid[new_pos[0]][new_pos[1]] == 1:
-						continue
-					new_node = node(previous=self, pos=new_pos, start=self.start, goal=self.goal)
+
+			# Diagnal Movement
+			# for dy in range(-1, 2, 1):
+			# 	for dx in range(-1, 2, 1):
+			# 		new_pos = (self.pos[0] + dx, self.pos[0] + dy)
+			# 		if (new_pos == self.pos or not isValid(new_pos, grid_size)):
+			# 			continue
+			# 		if grid[new_pos[0]][new_pos[1]] == 1:
+			# 			continue
+			# 		new_node = node(previous=self, pos=new_pos, start=self.start, goal=self.goal)
+			# 		adjacents.append(new_node)
+
+			new_positions = [(self.pos[0]+1, self.pos[1]),(self.pos[0]-1, self.pos[1]),(self.pos[0], self.pos[1]+1),(self.pos[0], self.pos[1]-1)]
+			for new_pos in new_positions:
+				if (isValid(new_pos, grid_size) and grid[new_pos[0]][new_pos[1]] != 1):
+					new_node = node(previous=self, pos=new_pos, start=self.pos, goal=self.goal, curr_g=self.g)
 					adjacents.append(new_node)
 			return adjacents
 
@@ -288,7 +293,7 @@ def findPath(grid, car_pos, goal, grid_size):
 
 	openList = []
 	closedList = []
-	curr_node = node(None, car_pos, car_pos, goal)
+	curr_node = node(None, car_pos, car_pos, goal, 0)
 	heapq.heappush(openList, (0, curr_node))
 	while (len(openList) > 0):
 		curr_node = heapq.heappop(openList)[1]
@@ -310,10 +315,10 @@ def findPath(grid, car_pos, goal, grid_size):
 			i = 0
 			for openChildTuple in openList:
 				openChild = openChildTuple[1]
-				if (openChild == child and child.g > openChild.g):
+				if (openChild.pos == child.pos and child.g >= openChild.g):
 					skip = True
 					break
-				elif (openChild == child):
+				elif (openChild.pos == child.pos):
 					replace = True
 					break				
 				i+=1
@@ -322,6 +327,7 @@ def findPath(grid, car_pos, goal, grid_size):
 				continue
 			elif replace:
 				openList[i] = (child.f, child)
+				heapq.heapify(openList)
 			else:
 				heapq.heappush(openList, (child.f, child))
 
@@ -467,8 +473,7 @@ def navigate(car_pos=(0,0), goal=(9,9), grid_size=(10,10), car_direction=0):
 		print(path)
 		# (car_pos, car_direction) = moveCar(path, STEPS, car_pos, car_direction)
 
-#navigate()
-
+navigate(car_pos=(0,0), goal=(3,4), grid_size=(10,10), car_direction=0)
 # navigate(car_pos=(45,0), goal=(70,70), grid_size=(90,90), car_direction=0)
 # right(10)
 # path = [(0,1), (0,2), (1,2), (2,2), (2,3), (2,4)]
