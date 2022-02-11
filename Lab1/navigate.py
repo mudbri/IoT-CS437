@@ -17,6 +17,7 @@ CAR_WIDTH = 6 # Width of car in cm
 RADIUS = CAR_WIDTH/2 * CELL_SIZE # Clearance radius in cm
 THRESHOLD_SLOPE = 10 # Threshold distance in cm below which two detected obstacles would be considered one object
 
+
 class direction(Enum):
 	FORWARD = 2
 	BACKWARD = -2
@@ -434,9 +435,28 @@ car_pos : (int, int)
 car_direction : int
     The direction at which the car is facing at the end of the function. Can be one of the enum direction: FORWARD, BACKWARD, RIGHT, LEFT
 """
-def moveCar(path, steps, car_pos, car_direction, distance):
+# def moveCar(path, steps, car_pos, car_direction, distance):
+# 	curr_pos = car_pos
+# 	for cell in path[:steps]:
+# 		if (cell[0]-curr_pos[0]) == 1:
+# 			car_direction = move(1, car_direction, distance)
+# 		if (cell[0]-curr_pos[0]) == -1:
+# 			car_direction = move(-1, car_direction, distance)
+# 		if (cell[1]-curr_pos[1]) == 1:
+# 			car_direction = move(2, car_direction, distance)
+# 		if (cell[1]-curr_pos[1]) == -1:
+# 			car_direction = move(-2, car_direction, distance)
+# 		curr_pos = cell
+# 	return (car_pos, car_direction)
+
+
+def moveCar(path, steps, car_pos, car_direction):
 	curr_pos = car_pos
 	for cell in path[:steps]:
+		x_distance = cell[0] - curr_pos[0]
+		y_distance = cell[1] - curr_pos[1]
+		distance = math.sqrt(math.pow(x_distance,2) + math.pow(y_distance, 2))
+
 		if (cell[0]-curr_pos[0]) == 1:
 			car_direction = move(1, car_direction, distance)
 		if (cell[0]-curr_pos[0]) == -1:
