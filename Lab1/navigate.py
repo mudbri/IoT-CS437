@@ -11,12 +11,14 @@ STEPS = 3 # the number of steps to take before recomputing map
 ANGLE_RANGE = (-50, 50) # the minimum and maximum angle that the servo can turn. This is relative to the position of ultrasonic sensor in the car
 ANGLE_STEPS = 5 # granularity of changing the angle of the servo for distance readings
 SCALE = 0.01 # descrete steps taken while calculating intersecting cells along a slope
+speed = 5
+TURN_VALUE = 763 # used to turn car at 90 degrees. This value depends on speed
 
-# class direction(Enum):
-# 	FORWARD = 1
-# 	BACKWARDS = -1
-# 	RIGHT = 2
-# 	LEFT = -2
+class direction(Enum):
+	FORWARD = 2
+	BACKWARD = -2
+	RIGHT = 1
+	LEFT = -1
 
 # given an actual position in decimals, return the cell that the position belongs to
 def getCell(curr_pos):
@@ -29,8 +31,8 @@ Parameters:
 ------------
 car_pos : (int, int) 
     The current position of the car in the grid
-car_direction : double
-	The direction (angle) at which the car is facing
+car_direction : int
+	The direction at which the car is facing. Can be one of the enum direction: FORWARD, BACKWARD, RIGHT, LEFT
 measurement : (int, int)
 	A distance measurement from the ultrosonic in the format (angle, distance), were distance is in cm and angle in degrees
 
@@ -100,6 +102,8 @@ def addPoints(grid, pos1, pos2):
 	dy = pos2[1]-pos1[1]
 	dx_movement = SCALE*dx
 	dy_movement = SCALE*dy
+	print(dx_movement)
+	print(dy_movement)
 	curr_cell = getCell(curr_pos)
 	while not neighbours(curr_cell, pos2):
 		print(getCell(curr_pos))
@@ -147,8 +151,8 @@ car_pos : (int, int)
     The current position of the car in the grid
 grid_size : (int, int)
     The grid size in cm
-car_direction : double
-	The direction (angle) at which the car is facing
+car_direction : int
+	The direction at which the car is facing. Can be one of the enum direction: FORWARD, BACKWARD, RIGHT, LEFT
 angle_range : (int, int)
 	The range of angles that from which the distance readings will be obtained
 angle_steps: 
@@ -309,15 +313,7 @@ def findPath(grid, car_pos, goal, grid_size):
 			else:
 				heapq.heappush(openList, (child.f, child))
 
-	# heapq.heappush(openList, (5, (1,2)))
-	# heapq.heappush(openList, (2, (3,4)))
-	# heapq.heappush(openList, (7, (1,4)))
-	# heapq.heappush(openList, (1, (5,5)))
-	# heapq.heappush(openList, (8, (1,1)))
-	# print(heapq.heappop(openList))
-	# print(heapq.heappop(openList))
-	# print(heapq.heappop(openList))
-speed = 5
+# Moves car forward by distance amount
 def moveForward(distance):
 	count_forward = 0
 	while (count_forward < 100):
@@ -325,87 +321,112 @@ def moveForward(distance):
 		count_forward += 1
 	fc.stop()
 
-def right(distance):
+# Turns the car right (90 degrees)
+def right():
 	count_forward = 0
-	while (count_forward < 763):
+	while (count_forward < TURN_VALUE):
 		fc.forward(speed)
 		count_forward += 1
 	fc.stop()
 
-def left(distance):
+# Turns the car left (-90 degrees)
+def left():
 	count_forward = 0
-	while (count_forward < 763):
+	while (count_forward < TURN_VALUE):
 		fc.backward(speed)
 		count_forward += 1
 	fc.stop()
 		
-def move(goal_direction, car_direction):
-	direction = car_direction
-	if (goal_direction == 2 and car_direction == 1):
-		left(1)
-		direction = 2
-	elif (goal_direction == 2 and car_direction == -1):
-		right(1)
-		direction = 2
-	elif (goal_direction == 2 and car_direction == -2):
-		right(1)
-		right(1)
-		direction = 2
 
-	elif (goal_direction == 1 and car_direction == -2):
-		left(1)
-		direction = 1
-	elif (goal_direction == 1 and car_direction == 2):
-		right(1)
-		direction = 1
-	elif (goal_direction == 1 and car_direction == -1):
-		right(1)
-		right(1)
-		direction = 1
+"""
+Moves the car towards the specified direction and distance. 
 
-	elif (goal_direction == -2 and car_direction == -1):
-		left(1)
-		direction = -2
-	elif (goal_direction == -2 and car_direction == 1):
-		right(1)
-		direction = -2
-	elif (goal_direction == -2 and car_direction == 2):
-		right(1)
-		right(1)
-		direction = -2
+Parameters:
+------------
+goal_direction : int
+	The direction at which the car has to be moved. Can be one of the enum direction: FORWARD, BACKWARD, RIGHT, LEFT
+car_direction : int
+	The direction at which the car is facing. Can be one of the enum direction: FORWARD, BACKWARD, RIGHT, LEFT
+distance : int
+	The amount by which the car should move. This distance depends on the lenth of the cell
 
-	elif (goal_direction == -1 and car_direction == 2):
-		left(1)
-		direction = -1
-	elif (goal_direction == -1 and car_direction == -2):
-		right(1)
-		direction = -1
-	elif (goal_direction == -1 and car_direction == 1):
-		right(1)
-		right(1)
-		direction = -1
+Returns:
+------------
+direction : int
+    The direction at which the car is facing at the end of the function. Can be one of the enum direction: FORWARD, BACKWARD, RIGHT, LEFT
+"""
+def move(goal_direction, car_direction, distance):
+	if (goal_direction == direction.FORWARD and car_direction == direction.RIGHT):
+		left()
+	elif (goal_direction == direction.FORWARD and car_direction == direction.LEFT):
+		right()
+	elif (goal_direction == direction.FORWARD and car_direction == direction.BACKWARD):
+		right()
+		right()
 
-	moveForward(1)
-	return(direction)
+	elif (goal_direction == direction.RIGHT and car_direction == direction.BACKWARD):
+		left()
+	elif (goal_direction == direction.RIGHT and car_direction == direction.FORWARD):
+		right()
+	elif (goal_direction == direction.RIGHT and car_direction == direction.LEFT):
+		right()
+		right()
 
-# move x positive as 1
-# move x negative as -1
-# move y positive as 2
-# move y negative as -2
-def moveCar(path, STEPS, car_pos, car_direction):
+	elif (goal_direction == direction.BACKWARD and car_direction == direction.LEFT):
+		left()
+	elif (goal_direction == direction.BACKWARD and car_direction == direction.RIGHT):
+		right()
+	elif (goal_direction == direction.BACKWARD and car_direction == direction.FORWARD):
+		right()
+		right()
+
+	elif (goal_direction == direction.LEFT and car_direction == direction.FORWARD):
+		left()
+	elif (goal_direction == direction.LEFT and car_direction == direction.BACKWARD):
+		right()
+	elif (goal_direction == direction.LEFT and car_direction == direction.RIGHT):
+		right()
+		right()
+
+	moveForward(distance)
+	return(goal_direction)
+
+"""
+Takes 'steps' number of steps towards the goal 
+
+Parameters:
+------------
+path : [(int,int), (int,int)...]
+    A list of cells to visit to get to the goal in the shortest path
+steps : int
+	The number of steps from the given path to take  
+car_pos : (int, int) 
+    The current position of the car in the grid
+car_direction : int
+	The direction at which the car is facing. Can be one of the enum direction: FORWARD, BACKWARD, RIGHT, LEFT
+distance : int
+	The amount by which the car should move. This distance depends on the lenth of the cell
+
+Returns:
+------------
+car_pos : (int, int) 
+    The current position of the car in the grid after the movement
+car_direction : int
+    The direction at which the car is facing at the end of the function. Can be one of the enum direction: FORWARD, BACKWARD, RIGHT, LEFT
+"""
+def moveCar(path, steps, car_pos, car_direction, distance):
 	curr_pos = car_pos
-	for cell in path:
-		print("cell", cell)
-		print("car_direction", car_direction)
+	for cell in path[:steps]:
 		if (cell[0]-curr_pos[0]) == 1:
-			car_direction = move(1, car_direction)
+			car_direction = move(1, car_direction, distance)
 		if (cell[0]-curr_pos[0]) == -1:
-			car_direction = move(-1, car_direction)
+			car_direction = move(-1, car_direction, distance)
 		if (cell[1]-curr_pos[1]) == 1:
-			car_direction = move(2, car_direction)
+			car_direction = move(2, car_direction, distance)
 		if (cell[1]-curr_pos[1]) == -1:
-			car_direction = move(-2, car_direction)
+			car_direction = move(-2, car_direction, distance)
 		curr_pos = cell
+	return (car_pos, car_direction)
 
 
 
@@ -421,8 +442,8 @@ goal : (int, int)
 	The position of the goal where we want the car to navigate to in the grid
 grid_size : (int, int)
     The grid size in cm
-car_direction : double
-	The direction (angle) at which the car is facing
+car_direction : int
+	The direction at which the car is facing. Can be one of the enum direction: FORWARD, BACKWARD, RIGHT, LEFT
 """
 def navigate(car_pos=(0,0), goal=(9,9), grid_size=(10,10), car_direction=0):
 	while (car_pos != goal):
@@ -432,17 +453,18 @@ def navigate(car_pos=(0,0), goal=(9,9), grid_size=(10,10), car_direction=0):
 		path = findPath(grid, car_pos, goal, grid_size) # path is a series of cells to visit to get to the goal
 		car_pos = goal
 		print(path)
-		(car_pos, car_direction) = moveCar(path, STEPS, car_pos, car_direction)
+		# (car_pos, car_direction) = moveCar(path, STEPS, car_pos, car_direction)
 
+navigate()
 # navigate(car_pos=(45,0), goal=(70,70), grid_size=(90,90), car_direction=0)
 # right(10)
-path = [(0,1), (0,2), (1,2), (2,2), (2,3), (2,4)]
-moveCar(path, STEPS, (0,0), 2)
+# path = [(0,1), (0,2), (1,2), (2,2), (2,3), (2,4)]
+# moveCar(path, STEPS, (0,0), 2)
 # moveForward(1)
 # moveForward(1)
-# right(1)
+# right()
 # moveForward(1)
-# left(1)
+# left()
 # moveForward(1)
 
 # print(getDistanceMeasurements(ANGLE_RANGE, ANGLE_STEPS))
