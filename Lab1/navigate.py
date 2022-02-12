@@ -12,7 +12,7 @@ ANGLE_STEPS = 5 # granularity of changing the angle of the servo for distance re
 SCALE = 0.01 # descrete steps taken while calculating intersecting cells along a slope
 speed = 5
 TURN_VALUE = 763 # used to turn car at 90 degrees. This value depends on speed
-CELL_SIZE = 5 # each cell is of size CELL_SIZE*CELL_SIZE in cm
+CELL_SIZE = 1 # each cell is of size CELL_SIZE*CELL_SIZE in cm
 CAR_WIDTH = 10 # Width of car in cm
 RADIUS = CAR_WIDTH/2 * CELL_SIZE # Clearance radius in cm
 THRESHOLD_SLOPE = 10 # Threshold distance in cm below which two detected obstacles would be considered one object
@@ -111,10 +111,11 @@ def addPoints(grid, pos1, pos2, grid_size):
 		# print(curr_pos[0],curr_pos[1])
 		curr_cell = getCell(curr_pos)
 		grid[curr_cell[0]][curr_cell[1]] = 1
-		markClearance(curr_cell, grid, RADIUS)	
+		# markClearance(curr_cell, grid, RADIUS)	
 		curr_pos = (dx_movement + curr_pos[0], dy_movement + curr_pos[1])
+	
 	grid[pos2[0]][pos2[1]] = 1
-	markClearance(pos2, grid, RADIUS)	
+	# markClearance(pos2, grid, RADIUS)	
 
 # check if given position exists inside the grid
 def isValid(pos, grid_size):
@@ -138,7 +139,7 @@ distance_measures : [(int,double), (int,double) ....]
 """
 def getDistanceMeasurements(angle_range, angle_steps):
 	fc.servo.set_angle(0)
-	time.sleep(0.4)
+	time.sleep(0.2)
 	distance_measures = []
 	for angle in range(angle_range[0], angle_range[1]+1, angle_steps):
 		dis_val =  fc.get_distance_at(angle)
@@ -169,22 +170,23 @@ grid : np.array
 def mapGrid(car_pos=(5,0), grid_size=(10,10), car_direction=0, angle_range=ANGLE_RANGE, angle_steps=ANGLE_STEPS):
 	grid = np.zeros(grid_size)
 	distance_measurements = getDistanceMeasurements(angle_range, angle_steps)
+	print(distance_measurements)
 	# distance_measurements = [(50,6),(30,3)]
 	for i in range(1, len(distance_measurements)):
 		measurement = distance_measurements[i]
 		last_measurement = distance_measurements[i-1]
 		obstacle_pos = getPos(car_pos, car_direction, measurement)
 		last_obstacle_pos = getPos(car_pos, car_direction, last_measurement)
-		if isValid(obstacle_pos, grid_size) and isValid(last_obstacle_pos, grid_size) and abs(round(distance(obstacle_pos, last_obstacle_pos))) <= THRESHOLD_SLOPE:
-			addPoints(grid, obstacle_pos, last_obstacle_pos, grid_size) # Make given positions and cells on a slope between them 1
+		# if isValid(obstacle_pos, grid_size) and isValid(last_obstacle_pos, grid_size) and abs(round(distance(obstacle_pos, last_obstacle_pos))) <= THRESHOLD_SLOPE:
+			# addPoints(grid, obstacle_pos, last_obstacle_pos, grid_size) # Make given positions and cells on a slope between them 1
 		# elif isValid(obstacle_pos, grid_size) and not isValid(last_obstacle_pos, grid_size): #TODO: Add clearance
 		# 	grid[obstacle_pos[0]][obstacle_pos[1]] = 1
 		if isValid(obstacle_pos, grid_size):
 			grid[obstacle_pos[0]][obstacle_pos[1]] = 1
-			markClearance(obstacle_pos, grid, RADIUS)
+			# markClearance(obstacle_pos, grid, RADIUS)
 		if isValid(last_obstacle_pos, grid_size):
 			grid[last_obstacle_pos[0]][last_obstacle_pos[1]] = 1
-			markClearance(last_obstacle_pos, grid, RADIUS)
+			# markClearance(last_obstacle_pos, grid, RADIUS)
 	return grid
 
 # cell = (x,y) coordinates
