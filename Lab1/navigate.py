@@ -5,17 +5,19 @@ import heapq
 import picar_4wd as fc
 from picar_4wd import Ultrasonic
 import time
+import detect
 
-STEPS = 3 # the number of steps to take before recomputing map
+STEPS = 5 # the number of steps to take before recomputing map
 ANGLE_RANGE = (-50, 50) # the minimum and maximum angle that the servo can turn. This is relative to the position of ultrasonic sensor in the car
 ANGLE_STEPS = 5 # granularity of changing the angle of the servo for distance readings
-SCALE = 0.1 # descrete steps taken while calculating intersecting cells along a slope
+SCALE = 0.01 # descrete steps taken while calculating intersecting cells along a slope
 speed = 5
-TURN_VALUE = 763 # used to turn car at 90 degrees. This value depends on speed
+TURN_VALUE = 779 # used to turn car at 90 degrees. This value depends on speed
 CELL_SIZE = 5 # each cell is of size CELL_SIZE*CELL_SIZE in cm
 CAR_WIDTH = 10 # Width of car in cm
 RADIUS = CAR_WIDTH/(2 * CELL_SIZE) # Clearance radius in cm
-THRESHOLD_SLOPE = 50 # Threshold distance in cm below which two detected obstacles would be considered one object
+# RADIUS = 0
+THRESHOLD_SLOPE = 0 # Threshold distance in cm below which two detected obstacles would be considered one object
 
 
 class direction(Enum):
@@ -29,6 +31,8 @@ def getCell(curr_pos):
 	return (math.floor(curr_pos[0]/CELL_SIZE),math.floor(curr_pos[1]/CELL_SIZE))
 
 def get_angle(car_direction):
+	# print("car dir: " + str(car_direction)) 
+	# print(int(direction.FORWARD))
 	if (car_direction == direction.FORWARD):
 		return 0
 	elif (car_direction == direction.BACKWARD):
@@ -118,7 +122,7 @@ def addPoints(grid, pos1, pos2, grid_size):
 	dy_movement = SCALE*dy
 	curr_cell = (math.floor(curr_pos[0]), math.floor(curr_pos[1]))
 	while not neighbours(curr_cell, pos2):
-		print("curr_cell", curr_cell)
+		# print("curr_cell", curr_cell)
 		grid[curr_cell[0]][curr_cell[1]] = 1
 		markClearance(curr_cell, grid, RADIUS)	
 		curr_pos = (dx_movement + curr_pos[0], dy_movement + curr_pos[1])
@@ -150,8 +154,12 @@ def getDistanceMeasurements(angle_range, angle_steps):
 	fc.servo.set_angle(0)
 	time.sleep(0.4)
 	distance_measures = []
+	# print("dist measurement" + str(distance_measures))
+	
 	for angle in range(angle_range[0], angle_range[1]+1, angle_steps):
 		dis_val =  fc.get_distance_at(angle)
+		if (dis_val<0):
+			continue
 		distance_measures.append((angle*-1,dis_val))
 	return distance_measures
 
@@ -180,12 +188,15 @@ def mapGrid(car_pos=(5,0), grid_size=(10,10), car_direction=direction.FORWARD, a
 	grid = np.zeros(grid_size)
 	distance_measurements = getDistanceMeasurements(angle_range, angle_steps)
 	# distance_measurements = [(50,200),(45,150), (40,1000), (35,1233), (30,100), (-50, 200), (-45, 100), (-40, 150), (20, 25)]
+	print("pos" + str(car_pos))
+	print("dist measurement", distance_measurements)
+	print("car dir" + str(car_direction))
 	for i in range(1, len(distance_measurements)):
 		measurement = distance_measurements[i]
 		last_measurement = distance_measurements[i-1]
 		obstacle_pos = getPos(car_pos, car_direction, measurement)
 		last_obstacle_pos = getPos(car_pos, car_direction, last_measurement)
-		print(measurement,obstacle_pos, last_obstacle_pos, abs(round(distance(obstacle_pos, last_obstacle_pos))))
+		# print(measurement,obstacle_pos, last_obstacle_pos, abs(round(distance(obstacle_pos, last_obstacle_pos))))
 		if isValid(obstacle_pos, grid_size) and isValid(last_obstacle_pos, grid_size) and abs(round(distance(obstacle_pos, last_obstacle_pos))) <= THRESHOLD_SLOPE:
 			addPoints(grid, obstacle_pos, last_obstacle_pos, grid_size) # Make given positions and cells on a slope between them 1
 		# elif isValid(obstacle_pos, grid_size) and not isValid(last_obstacle_pos, grid_size): #TODO: Add clearance
@@ -272,7 +283,7 @@ def findPath(grid, car_pos, goal, grid_size):
 		def isGoal(self):
 			return self.h == 0 # ending point
 
-		def adjacentChildren(self, grid, grid_size):
+		def adjacentChildren(self, grid, grid_size, goal):
 			adjacents = []
 
 			# Diagnal Movement
@@ -288,7 +299,7 @@ def findPath(grid, car_pos, goal, grid_size):
 
 			new_positions = [(self.pos[0]+1, self.pos[1]),(self.pos[0]-1, self.pos[1]),(self.pos[0], self.pos[1]+1),(self.pos[0], self.pos[1]-1)]
 			for new_pos in new_positions:
-				if (isValid(new_pos, grid_size) and grid[new_pos[0]][new_pos[1]] != 1):
+				if (isValid(new_pos, grid_size) and grid[new_pos[0]][new_pos[1]] != 1) or new_pos == goal:
 					new_node = node(previous=self, pos=new_pos, start=self.pos, goal=self.goal, curr_g=self.g)
 					adjacents.append(new_node)
 			return adjacents
@@ -318,7 +329,7 @@ def findPath(grid, car_pos, goal, grid_size):
 
 		if (curr_node.isGoal()):
 			return curr_node.backtrack()
-		children = curr_node.adjacentChildren(grid, grid_size)
+		children = curr_node.adjacentChildren(grid, grid_size, goal)
 		# print()
 		# print(curr_node.pos)
 		for child in children:
@@ -350,7 +361,7 @@ def findPath(grid, car_pos, goal, grid_size):
 # Moves car forward by distance amount
 def moveForward(distance):
 	count_forward = 0
-	while (count_forward < 100):
+	while (count_forward < 125):
 		fc.turn_right(speed)
 		count_forward += 1
 	fc.stop()
@@ -366,7 +377,7 @@ def right():
 # Turns the car left (-90 degrees)
 def left():
 	count_forward = 0
-	while (count_forward < TURN_VALUE):
+	while (count_forward < TURN_VALUE+16):
 		fc.backward(speed)
 		count_forward += 1
 	fc.stop()
@@ -465,21 +476,23 @@ car_direction : int
 
 def moveCar(path, steps, car_pos, car_direction):
 	curr_pos = car_pos
-	for cell in path[:steps]:
+	# if not path:
+	# 	return
+	for cell in path[:min(steps, len(path))]:
 		x_distance = cell[0] - curr_pos[0]
 		y_distance = cell[1] - curr_pos[1]
 		distance = math.sqrt(math.pow(x_distance,2) + math.pow(y_distance, 2))
 
 		if (cell[0]-curr_pos[0]) == 1:
-			car_direction = move(1, car_direction, distance)
+			car_direction = move(direction.RIGHT, car_direction, distance)
 		if (cell[0]-curr_pos[0]) == -1:
-			car_direction = move(-1, car_direction, distance)
+			car_direction = move(direction.LEFT, car_direction, distance)
 		if (cell[1]-curr_pos[1]) == 1:
-			car_direction = move(2, car_direction, distance)
+			car_direction = move(direction.FORWARD, car_direction, distance)
 		if (cell[1]-curr_pos[1]) == -1:
-			car_direction = move(-2, car_direction, distance)
+			car_direction = move(direction.BACKWARD, car_direction, distance)
 		curr_pos = cell
-	return (car_pos, car_direction)
+	return (curr_pos, car_direction)
 
 
 
@@ -501,27 +514,12 @@ car_direction : int
 def navigate(car_pos=(0,0), goal=(9,9), grid_size=(10,10), car_direction=direction.FORWARD):
 	while (car_pos != goal):
 		grid = mapGrid(car_pos, grid_size, car_direction, ANGLE_RANGE, ANGLE_STEPS)
-		# addClearance(grid, CAR_SIZE) # TODO: adds extra space around obstacles to allow for the size of the car
 		printGrid(grid, grid_size)
 		path = findPath(grid, car_pos, goal, grid_size) # path is a series of cells to visit to get to the goal
-		# car_pos = goal
 		print(path)
 		(car_pos, car_direction) = moveCar(path, STEPS, car_pos, car_direction)
+		detect.main()
+		print("car:", car_pos, car_direction)
 
-# navigate(car_pos=(0,0), goal=(3,4), grid_size=(10,10), car_direction=direction.FORWARD)
-navigate(car_pos=(15,0), goal=(29,29), grid_size=(30,30), car_direction=direction.FORWARD)
-# right(10)
-# path = [(0,1), (0,2), (1,2), (2,2), (2,3), (2,4)]
-# moveCar(path, STEPS, (0,0), 2)
-# moveForward(1)
-# moveForward(1)
-# right()
-# moveForward(1)
-# left()
-# moveForward(1)
-
-# print(getDistanceMeasurements(ANGLE_RANGE, ANGLE_STEPS))
-
-
-# arr = [[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0]]
-# print(markClearance((0,1), arr, 2))
+navigate(car_pos=(15,0), goal=(10,20), grid_size=(30,30), car_direction=direction.FORWARD)
+# 

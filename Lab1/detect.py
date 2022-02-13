@@ -63,7 +63,7 @@ def run(model: str, camera_id: int, width: int, height: int, num_threads: int,
       max_results=3,
       enable_edgetpu=enable_edgetpu)
   detector = ObjectDetector(model_path=model, options=options)
-
+  found = False
   # Continuously capture images from the camera and run inference
   while cap.isOpened():
     success, image = cap.read()
@@ -77,21 +77,21 @@ def run(model: str, camera_id: int, width: int, height: int, num_threads: int,
     
     # Run object detection estimation using the model.
     detections = detector.detect(image)
-    
+
     for i in range(len(detections)):
-      # print(str(detections[i][1]))
-      if 'stop sign' in str(detections[i][1]):
+      if 'stop sign' in str(detections[i][1]) and found == False:
         print("stop sign found")
         count_back = 0
-        while count_back < 500:
-          fc.backward(speed)
+        found = True
+        while count_back < 200:
+          fc.turn_left(speed)
           count_back += 1
       else:
         print("not found")
         # while True:
         count = 0
         while count < 100:
-          fc.forward(speed)
+          fc.turn_right(speed)
           count += 1
         if count == 100:
           count_stop = 0
