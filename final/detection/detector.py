@@ -15,15 +15,29 @@
 import argparse
 import sys
 import time
-
+import picar_4wd as fc
+from picar_4wd import Ultrasonic
 import cv2
 from object_detector import ObjectDetector
 from object_detector import ObjectDetectorOptions
 import utils
 from num2words import num2words
 from subprocess import call
+import math
 cmd_beg= 'espeak '
 cmd_end= ' 2>/dev/null' # To dump the std errors to /dev/null
+
+THRRESHOLD = 5
+
+def not_encountered(Object, distance, last_objects):
+    found = True
+    print(last_objects)
+    for objects in last_objects:
+        if (Object == objects[0] and abs(distance-objects[1]) > THRRESHOLD):
+            return True
+        elif (Object == objects[0]):
+            found = False
+    return found
 
 def run(model: str, camera_id: int, width: int, height: int, num_threads: int,
         enable_edgetpu: bool) -> None:
@@ -62,6 +76,8 @@ def run(model: str, camera_id: int, width: int, height: int, num_threads: int,
       enable_edgetpu=enable_edgetpu)
   detector = ObjectDetector(model_path=model, options=options)
   found = False
+
+  last_objects = []
   # Continuously capture images from the camera and run inference
   while cap.isOpened():
     success, image = cap.read()
@@ -81,13 +97,28 @@ def run(model: str, camera_id: int, width: int, height: int, num_threads: int,
         print(detections[i][1][0].label)
         print(detections[i][0])
         size = (detections[i][0].right - detections[i][0].left)*(detections[i][0].bottom - detections[i][0].top)
-        distance = num2words(5)
+        dis_val =  fc.get_distance_at(0)
+        # print(str(current_angle) + ": " + str(dis_val))
+        #checks if car is close to object
+        distance_num = round(dis_val / 30.48, 2)
+        print(distance_num)
+        print("val", dis_val)
+        if distance_num < 1 and distance_num > 0:
+            print("obstacle found")
+        else:
+            continue
+        distance = num2words(distance_num)
         distance = distance.replace(' ', '_')
         Object = detections[i][1][0].label
-        call([cmd_beg + "'a " + Object + " is " + distance + " feet away'" + cmd_end], shell=True)
+        if (not_encountered(Object, distance_num, last_objects)):
+            # last_objects = []
+            last_objects.append((Object, distance_num))
+            call([cmd_beg + "'a " + Object + " is " + distance + " feet away'" + cmd_end], shell=True)
 
+    if (counter > 100):
+        last_objects = []
     print()
-    time.sleep(1)
+    # time.sleep(1)
     # Draw keypoints and edges on input image
     image = utils.visualize(image, detections)
 
