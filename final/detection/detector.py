@@ -103,17 +103,22 @@ def run(model: str, camera_id: int, width: int, height: int, num_threads: int,
         distance_num = round(dis_val / 30.48, 2)
         print(distance_num)
         print("val", dis_val)
-        if distance_num < 1 and distance_num > 0:
+        if distance_num < 3 and distance_num > 0:
             print("obstacle found")
+        elif distance_num < 1 and distance_num > 0:
+            print("close")
         else:
             continue
         distance = num2words(distance_num)
         distance = distance.replace(' ', '_')
         Object = detections[i][1][0].label
-        if (not_encountered(Object, distance_num, last_objects)):
+        if (Object and not_encountered(Object, distance_num, last_objects)):
             # last_objects = []
             last_objects.append((Object, distance_num))
             call([cmd_beg + "'a " + Object + " is " + distance + " feet away'" + cmd_end], shell=True)
+        elif distance_num < 1 and distance_num > 0:
+            call([cmd_beg + "'a " + "An unknown object is " + distance + " feet away'" + cmd_end], shell=True)
+
 
     if (counter > 100):
         last_objects = []
